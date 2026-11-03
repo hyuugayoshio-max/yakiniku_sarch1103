@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sarch">
+<meta name="format-detection" content="telephone=no">
+<title>Sarch</title>
+<!--
+  焼肉の女 第1話 S6 赤奈スマホ検索画面（架空検索サービス「Sarch」）
+
+  ■ 操作方法
+  ・Space ……… 自動入力で再生（トップに戻って入力→検索→結果）
+  ・R ………… いきなり結果画面を表示（検索ワード入力済み）
+  ・0 ………… トップに戻る（入力をクリア）
+  ・Esc ……… 入力欄から抜ける
+  ・トップのロゴをタップ/クリック …… 再生
+  ・結果画面の小さいロゴをタップ …… トップに戻る
+  ・結果画面の検索バーをタップ …… 入力内容を残してトップに戻り、入力可能に
+  ・結果画面の × …… 入力をクリアしてトップに戻り、入力可能に
+  ・入力欄に手入力して Enter …… 検索（日本語変換中のEnterは無視）
+  ・自動入力中（〜結果表示まで）のキー入力は無視。入力欄をタップすると自動入力を中断
+  ・マウスを2秒動かさないとカーソルが消えます
+
+  ■ 文言・色・タイミングの変更はすぐ下の CONFIG だけ書き換えてください
+-->
+<style>
+  :root{
+    --u: calc(min(100vw, 100vh * 0.462) / 390);
+    --accent: #4a72d8;
+    --link: #1a47c8;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; overflow:hidden; background:#000;
+    font-family:-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "YuGothic", Meiryo, "Noto Sans JP", sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+    -webkit-text-size-adjust:100%;
+  }
+  ::-webkit-scrollbar{ display:none; }
+  *{ scrollbar-width:none; }
+  body.nocursor, body.nocursor *{ cursor:none !important; }
+
+  #stage{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+  #phone{
+    position:relative; overflow:hidden; background:#fff; color:#202124;
+    width:calc(var(--u) * 390); height:calc(var(--u) * 844);
+  }
+  @media (pointer:coarse), (max-width:600px){
+    :root{ --u: calc(100vw / 390); }
+    #phone{ width:100vw; height:100vh; height:100dvh; padding-top:env(safe-area-inset-top, 0px); }
+  }
+
+  /* 読み込みバー */
+  #loadbar{
+    position:absolute; left:0; top:env(safe-area-inset-top, 0px); height:calc(var(--u) * 3);
+    width:0; background:var(--accent); opacity:0; z-index:50; pointer-events:none;
+  }
+
+  .screen{ position:absolute; left:0; right:0; bottom:0; top:env(safe-area-inset-top, 0px); display:flex; flex-direction:column; }
+  .hidden{ display:none !important; }
+  svg{ display:block; }
+
+  /* ===== 画面1：トップ ===== */
+  .topbar{ height:calc(var(--u)*56); display:flex; align-items:center; justify-content:space-between; padding:0 calc(var(--u)*16); }
+  .toptabs{ display:flex; height:100%; gap:calc(var(--u)*20); }
+  .toptab{ position:relative; display:flex; align-items:center; font-size:calc(var(--u)*14); color:#5f6368; font-weight:500; }
+  .toptab.on{ color:var(--accent); font-weight:700; }
+  .toptab.on::after{ content:""; position:absolute; left:0; right:0; bottom:calc(var(--u)*8); height:calc(var(--u)*3); background:var(--accent); border-radius:calc(var(--u)*3) calc(var(--u)*3) 0 0; }
+  .topicons{ display:flex; align-items:center; gap:calc(var(--u)*18); }
+  .ic24{ width:calc(var(--u)*24); height:calc(var(--u)*24); }
+
+  .logo{ font-weight:800; letter-spacing:calc(var(--u)*-1); line-height:1; cursor:pointer; }
+  .logo span{ display:inline-block; }
+  #bigLogo{ font-size:calc(var(--u)*56); text-align:center; margin-top:calc(var(--u)*170); }
+
+  .sbox{
+    position:relative; margin:calc(var(--u)*30) calc(var(--u)*24) 0; height:calc(var(--u)*52);
+    border:1px solid #dfe1e5; border-radius:calc(var(--u)*26); background:#fff;
+    box-shadow:0 calc(var(--u)*1) calc(var(--u)*6) rgba(32,33,36,.12);
+    display:flex; align-items:center; padding:0 calc(var(--u)*16);
+  }
+  .sbox .ic{ width:calc(var(--u)*22); height:calc(var(--u)*22); flex:none; }
+  .field{ position:relative; flex:1; height:100%; margin:0 calc(var(--u)*12); min-width:0; }
+  #disp, #q{
+    position:absolute; inset:0; font-size:calc(var(--u)*17); color:#202124; font-family:inherit;
+    display:flex; align-items:center; white-space:nowrap; overflow:hidden;
+  }
+  #ph{ color:#9aa0a6; }
+  #caret{
+    display:inline-block; width:calc(var(--u)*2); height:calc(var(--u)*22); background:var(--accent);
+    margin-left:1px; vertical-align:middle; visibility:hidden;
+  }
+  #disp.focus #caret{ visibility:visible; animation:blink 1s steps(1) infinite; }
+  #disp.focus #ph{ margin-left:calc(var(--u)*-3); }
+  @keyframes blink{ 50%{ opacity:0; } }
+  #q{
+    width:100%; border:none; outline:none; background:transparent; opacity:0; padding:0;
+    caret-color:var(--accent); -webkit-user-select:text; user-select:text; -webkit-appearance:none; appearance:none;
+  }
+  #q::placeholder{ color:#9aa0a6; }
+  .native #q{ opacity:1; }
+  .native #disp{ visibility:hidden; }
+
+  .shortcuts{ display:flex; justify-content:center; gap:calc(var(--u)*26); margin-top:calc(var(--u)*38); }
+  .sc{ display:flex; flex-direction:column; align-items:center; width:calc(var(--u)*60); }
+  .sc .circ{ width:calc(var(--u)*56); height:calc(var(--u)*56); border-radius:50%; background:#f1f3f4; display:flex; align-items:center; justify-content:center; }
+  .sc .circ svg{ width:calc(var(--u)*28); height:calc(var(--u)*28); }
+  .sc .lbl{ margin-top:calc(var(--u)*8); font-size:calc(var(--u)*12); color:#3c4043; }
+
+  /* ===== 画面2：結果 ===== */
+  .rhead{ height:calc(var(--u)*52); display:flex; align-items:center; justify-content:space-between; padding:0 calc(var(--u)*16); flex:none; }
+  #smallLogo{ font-size:calc(var(--u)*26); }
+  .rbox{
+    margin:calc(var(--u)*2) calc(var(--u)*16) 0; height:calc(var(--u)*46); flex:none;
+    border:1px solid #dfe1e5; border-radius:calc(var(--u)*23); background:#fff;
+    box-shadow:0 calc(var(--u)*1) calc(var(--u)*5) rgba(32,33,36,.12);
+    display:flex; align-items:center; padding:0 calc(var(--u)*14); cursor:pointer;
+  }
+  .rbox .ic{ width:calc(var(--u)*20); height:calc(var(--u)*20); flex:none; }
+  #rq{ flex:1; min-width:0; margin:0 calc(var(--u)*10); font-size:calc(var(--u)*16); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #rx{ padding:0 calc(var(--u)*10) 0 calc(var(--u)*4); border-right:1px solid #dfe1e5; margin-right:calc(var(--u)*10); height:calc(var(--u)*24); display:flex; align-items:center; }
+  #rx svg{ width:calc(var(--u)*20); height:calc(var(--u)*20); }
+  .rtabs{ display:flex; gap:calc(var(--u)*22); padding:0 calc(var(--u)*18); height:calc(var(--u)*44); border-bottom:1px solid #e8eaed; flex:none; overflow:hidden; margin-top:calc(var(--u)*6); }
+  .rtab{ position:relative; display:flex; align-items:center; font-size:calc(var(--u)*14); color:#5f6368; white-space:nowrap; }
+  .rtab.on{ color:var(--accent); font-weight:700; }
+  .rtab.on::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:calc(var(--u)*3); background:var(--accent); border-radius:calc(var(--u)*3) calc(var(--u)*3) 0 0; }
+  .rbody{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .count{ font-size:calc(var(--u)*12); color:#70757a; padding:calc(var(--u)*12) calc(var(--u)*16) calc(var(--u)*10); }
+  .item{ padding:calc(var(--u)*14) calc(var(--u)*16) calc(var(--u)*16); border-top:calc(var(--u)*8) solid #f1f3f4; }
+  .site{ display:flex; align-items:center; }
+  .fav{ width:calc(var(--u)*28); height:calc(var(--u)*28); border-radius:50%; color:#fff; font-size:calc(var(--u)*13); font-weight:700; display:flex; align-items:center; justify-content:center; flex:none; }
+  .smeta{ margin-left:calc(var(--u)*10); min-width:0; }
+  .sname{ font-size:calc(var(--u)*13); color:#202124; line-height:1.3; }
+  .surl{ font-size:calc(var(--u)*11.5); color:#4d5156; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ttl{ margin-top:calc(var(--u)*10); font-size:calc(var(--u)*17.5); line-height:1.4; color:var(--link); font-weight:500; }
+  .desc{
+    margin-top:calc(var(--u)*6); font-size:calc(var(--u)*13.5); line-height:1.6; color:#4d5156;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+</style>
+</head>
+<body>
+<script>
+/* ================= 設定ブロック（ここだけ書き換えればOK） ================= */
+const CONFIG = {
+  serviceName: "Sarch",
+  logoColors: ["#d65a4e", "#e9a04b", "#4f9e8f", "#4a72d8", "#8a5bd0"],
+  accentColor: "#4a72d8",
+  linkColor: "#1a47c8",
+  query: "最近 配信開始 映画 話題",
+  typeStartDelay: 600,   // 再生開始から入力開始まで(ms)
+  typeSpeed: 220,        // 1文字ごとの間隔(ms)
+  typeJitter: 90,        // 入力間隔のばらつき(ms)
+  searchDelay: 900,      // 入力完了から検索開始まで(ms)
+  loadDuration: 1100,    // 読み込みバーが走る時間(ms)
+  topTabs: ["すべて", "画像"],
+  placeholder: "検索またはURLを入力",
+  shortcuts: ["天気", "ニュース", "乗換", "翻訳"],
+  tabs: ["すべて", "動画", "画像", "ニュース", "ショッピング"],
+  countText: "約 1,240,000 件（0.38 秒）",
+  results: [
+    { icon:"シ", color:"#e0566b", site:"シネマノート", url:"https://cinemanote-web.jp › news",
+      title:"今週から配信開始！話題の映画『夜明けのレシピ』を徹底紹介",
+      desc:"配信直後からランキング上位に入った『夜明けのレシピ』。小さな食堂を舞台に家族の再生を描いた感動作の見どころとキャストをまとめました。" },
+    { icon:"エ", color:"#3a8fd8", site:"エイガログ", url:"https://eigalog-media.jp › feature",
+      title:"【今月の注目】最近配信が始まった話題の映画まとめ10選",
+      desc:"『海辺のアルゴリズム』『ガラスの午後』など、配信がスタートしたばかりの注目作を一挙紹介。あらすじと配信サービスもチェックできます。" },
+    { icon:"配", color:"#4aa36b", site:"配信ナビ", url:"https://haishin-navi.net › movie",
+      title:"『海辺のアルゴリズム』配信開始　SNSで「泣ける」と話題に",
+      desc:"劇場公開時に口コミで話題を集めた青春映画がついに配信開始。ラスト10分の展開に、視聴者から反響が相次いでいます。" },
+    { icon:"ム", color:"#8a5cc8", site:"ムービーポスト", url:"https://moviepost-jp.com › review",
+      title:"話題作『ガラスの午後』レビュー｜配信で観るべき3つの理由",
+      desc:"静かな会話劇ながら、じわじわと評価を上げている『ガラスの午後』。配信で何度も見返したくなる演出の魅力を解説します。" }
+  ]
+};
+/* ========================================================================== */
+</script>
+
+<div id="stage">
+  <div id="phone">
+    <div id="loadbar"></div>
+
+    <!-- 画面1：検索トップ -->
+    <div id="top" class="screen">
+      <div class="topbar">
+        <div class="toptabs" id="topTabs"></div>
+        <div class="topicons">
+          <svg class="ic24" viewBox="0 0 24 24"><path d="M12 3.5c-3.3 0-5.8 2.6-5.8 5.9v3.8L4.5 16v1h15v-1l-1.7-2.8V9.4c0-3.3-2.5-5.9-5.8-5.9z" fill="none" stroke="#5f6368" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.8 19.2a2.3 2.3 0 0 0 4.4 0" fill="none" stroke="#5f6368" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <svg class="ic24" viewBox="0 0 24 24" fill="#5f6368"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+        </div>
+      </div>
+
+      <div id="bigLogo" class="logo"></div>
+
+      <div class="sbox">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#5f6368" stroke-width="2.2"/><line x1="15.4" y1="15.4" x2="20.5" y2="20.5" stroke="#5f6368" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <div class="field" id="field">
+          <div id="disp"><span id="dtext"></span><span id="caret"></span><span id="ph"></span></div>
+          <input id="q" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+        </div>
+        <svg class="ic mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="var(--accent)"/><path d="M6 11.5a6 6 0 0 0 12 0" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17.5" x2="12" y2="21" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+
+      <div class="shortcuts" id="shortcuts"></div>
+    </div>
+
+    <!-- 画面2：検索結果 -->
+    <div id="results" class="screen hidden">
+      <div class="rhead">
+        <div id="smallLogo" class="logo"></div>
+        <svg class="ic24" viewBox="0 0 24 24"><g stroke="#5f6368" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></g></svg>
+      </div>
+      <div class="rbox" id="rbox">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#5f6368" stroke-width="2.2"/><line x1="15.4" y1="15.4" x2="20.5" y2="20.5" stroke="#5f6368" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <div id="rq"></div>
+        <div id="rx"><svg viewBox="0 0 24 24"><g stroke="#5f6368" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></g></svg></div>
+        <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="var(--accent)"/><path d="M6 11.5a6 6 0 0 0 12 0" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17.5" x2="12" y2="21" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <div class="rtabs" id="rtabs"></div>
+      <div class="rbody" id="rbody">
+        <div class="count" id="count"></div>
+        <div id="list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  document.documentElement.style.setProperty("--accent", CONFIG.accentColor);
+  document.documentElement.style.setProperty("--link", CONFIG.linkColor);
+  document.title = CONFIG.serviceName;
+
+  /* ---- 描画 ---- */
+  const logoHTML = () => [...CONFIG.serviceName].map((ch,i) =>
+    `<span style="color:${CONFIG.logoColors[i % CONFIG.logoColors.length]}">${esc(ch)}</span>`).join("");
+  $("bigLogo").innerHTML = logoHTML();
+  $("smallLogo").innerHTML = logoHTML();
+
+  $("topTabs").innerHTML = CONFIG.topTabs.map((t,i) => `<div class="toptab${i===0?" on":""}">${esc(t)}</div>`).join("");
+  $("rtabs").innerHTML = CONFIG.tabs.map((t,i) => `<div class="rtab${i===0?" on":""}">${esc(t)}</div>`).join("");
+  $("count").textContent = CONFIG.countText;
+  $("ph").textContent = CONFIG.placeholder;
+  $("q").placeholder = CONFIG.placeholder;
+
+  const SC_ICONS = [
+    // 天気：太陽と雲
+    `<svg viewBox="0 0 28 28"><g stroke="#e9a04b" stroke-width="1.8" stroke-linecap="round"><line x1="10" y1="2.5" x2="10" y2="4.8"/><line x1="3" y1="9.5" x2="5.3" y2="9.5"/><line x1="5" y1="4.5" x2="6.6" y2="6.1"/><line x1="15" y1="4.5" x2="13.4" y2="6.1"/></g><circle cx="10" cy="10" r="4.2" fill="#f2b84b"/><path d="M9 23h12.5a4.3 4.3 0 0 0 .4-8.6 5.6 5.6 0 0 0-10.7 1.4A3.6 3.6 0 0 0 9 23z" fill="#fff" stroke="#8a9199" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
+    // ニュース：新聞
+    `<svg viewBox="0 0 28 28"><rect x="4" y="5" width="17" height="18" rx="2" fill="#fff" stroke="#5f6368" stroke-width="1.6"/><path d="M21 9h2.5a1 1 0 0 1 1 1v10.5a2.5 2.5 0 0 1-5 0" fill="none" stroke="#5f6368" stroke-width="1.6"/><rect x="7" y="8.5" width="5.5" height="5" fill="#4a72d8"/><g stroke="#5f6368" stroke-width="1.4" stroke-linecap="round"><line x1="14.5" y1="9.5" x2="18" y2="9.5"/><line x1="14.5" y1="12.5" x2="18" y2="12.5"/><line x1="7" y1="16.5" x2="18" y2="16.5"/><line x1="7" y1="19.5" x2="18" y2="19.5"/></g></svg>`,
+    // 乗換：電車
+    `<svg viewBox="0 0 28 28"><rect x="6.5" y="3.5" width="15" height="17" rx="4" fill="#fff" stroke="#4f9e8f" stroke-width="1.7"/><rect x="9" y="7" width="10" height="6" rx="1.5" fill="#4f9e8f"/><circle cx="10.5" cy="17" r="1.3" fill="#4f9e8f"/><circle cx="17.5" cy="17" r="1.3" fill="#4f9e8f"/><g stroke="#4f9e8f" stroke-width="1.7" stroke-linecap="round"><line x1="9.5" y1="21" x2="7" y2="25"/><line x1="18.5" y1="21" x2="21" y2="25"/></g></svg>`,
+    // 翻訳：「文」と「A」
+    `<svg viewBox="0 0 28 28"><rect x="2.5" y="3.5" width="14" height="14" rx="2.5" fill="#4a72d8"/><text x="9.5" y="14.6" font-size="10" font-weight="700" text-anchor="middle" fill="#fff" font-family="Hiragino Sans, Yu Gothic, Meiryo, sans-serif">文</text><rect x="11.5" y="10.5" width="14" height="14" rx="2.5" fill="#fff" stroke="#5f6368" stroke-width="1.5"/><text x="18.5" y="21.4" font-size="10" font-weight="700" text-anchor="middle" fill="#5f6368" font-family="Arial, Helvetica, sans-serif">A</text></svg>`
+  ];
+  $("shortcuts").innerHTML = CONFIG.shortcuts.map((l,i) =>
+    `<div class="sc"><div class="circ">${SC_ICONS[i % SC_ICONS.length]}</div><div class="lbl">${esc(l)}</div></div>`).join("");
+
+  $("list").innerHTML = CONFIG.results.map(r => `
+    <div class="item">
+      <div class="site">
+        <div class="fav" style="background:${esc(r.color)}">${esc(r.icon)}</div>
+        <div class="smeta"><div class="sname">${esc(r.site)}</div><div class="surl">${esc(r.url)}</div></div>
+      </div>
+      <div class="ttl">${esc(r.title)}</div>
+      <div class="desc">${esc(r.desc)}</div>
+    </div>`).join("");
+
+  /* ---- 状態 ---- */
+  const q = $("q"), field = $("field"), disp = $("disp"), dtext = $("dtext"), ph = $("ph"), bar = $("loadbar");
+  let token = 0;      // 進行中の動きを識別（多重実行防止）
+  let busy = false;   // 自動入力〜結果表示まで
+  let text = "";
+
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function setText(v){ text = v; q.value = v; renderDisp(); }
+  function renderDisp(){ dtext.textContent = text; ph.style.display = text ? "none" : ""; }
+  function fakeFocus(on){ disp.classList.toggle("focus", on); }
+  function resetBar(){ bar.style.transition = "none"; bar.style.width = "0"; bar.style.opacity = "0"; }
+  function cancel(){ token++; busy = false; resetBar(); }
+
+  function showTop(clear){
+    $("results").classList.add("hidden");
+    $("top").classList.remove("hidden");
+    if (clear) setText("");
+    renderDisp();
+  }
+  function showResults(query){
+    if (document.activeElement === q) q.blur();
+    fakeFocus(false);
+    setText(query);
+    $("rq").textContent = query;
+    $("top").classList.add("hidden");
+    $("results").classList.remove("hidden");
+    $("rbody").scrollTop = 0;
+  }
+
+  async function runSearch(t, query){
+    busy = true;
+    bar.style.transition = "none"; bar.style.width = "0"; bar.style.opacity = "1";
+    void bar.offsetWidth;
+    bar.style.transition = `width ${CONFIG.loadDuration}ms linear`;
+    bar.style.width = "100%";
+    await wait(CONFIG.loadDuration);
+    if (t !== token) return;
+    showResults(query);
+    bar.style.transition = "opacity 300ms ease";
+    bar.style.opacity = "0";
+    busy = false;
+    await wait(320);
+    if (t !== token) return;
+    bar.style.transition = "none"; bar.style.width = "0";
+  }
+
+  async function play(){
+    cancel();
+    const t = token;
+    if (document.activeElement === q) q.blur();
+    showTop(true);
+    fakeFocus(true);
+    busy = true;
+    await wait(CONFIG.typeStartDelay);
+    for (const ch of CONFIG.query){
+      if (t !== token) return;
+      setText(text + ch);
+      const d = Math.max(30, CONFIG.typeSpeed + (Math.random()*2 - 1) * CONFIG.typeJitter);
+      await wait(d);
+    }
+    if (t !== token) return;
+    await wait(CONFIG.searchDelay);
+    if (t !== token) return;
+    fakeFocus(false);
+    runSearch(t, text);
+  }
+
+  function goResultsDirect(){
+    cancel();
+    if (document.activeElement === q) q.blur();
+    showResults(CONFIG.query);
+  }
+  function goTop(){
+    cancel();
+    if (document.activeElement === q) q.blur();
+    fakeFocus(false);
+    showTop(true);
+  }
+  function editAtTop(clear){
+    cancel();
+    showTop(clear);
+    q.focus();
+  }
+
+  /* ---- 入力欄（手入力） ---- */
+  q.addEventListener("pointerdown", () => { if (busy) { cancel(); fakeFocus(false); } });
+  q.addEventListener("focus", () => { fakeFocus(false); field.classList.add("native"); });
+  q.addEventListener("blur",  () => { field.classList.remove("native"); text = q.value; renderDisp(); });
+  q.addEventListener("input", () => { text = q.value; renderDisp(); });
+  q.addEventListener("keydown", e => {
+    if (e.key === "Enter"){
+      if (e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      const v = q.value.trim();
+      if (!v) return;
+      cancel();
+      text = q.value;
+      q.blur();
+      runSearch(token, text);
+    } else if (e.key === "Escape"){
+      e.preventDefault();
+      q.blur();
+    }
+  });
+
+  /* ---- キー操作 ---- */
+  document.addEventListener("keydown", e => {
+    if (busy){ e.preventDefault(); return; }       // 自動入力中は受け付けない
+    if (document.activeElement === q) return;       // 手入力中は入力欄側で処理
+    const k = e.key;
+    if (k === " " || e.code === "Space"){ e.preventDefault(); play(); }
+    else if (k === "r" || k === "R"){ e.preventDefault(); goResultsDirect(); }
+    else if (k === "0"){ e.preventDefault(); goTop(); }
+    else if (k === "Escape"){ fakeFocus(false); }
+  });
+
+  /* ---- タップ操作 ---- */
+  $("bigLogo").addEventListener("click", play);
+  $("smallLogo").addEventListener("click", goTop);
+  $("rx").addEventListener("click", e => { e.stopPropagation(); editAtTop(true); });
+  $("rbox").addEventListener("click", () => editAtTop(false));
+
+  /* ---- マウス2秒停止でカーソル非表示 ---- */
+  let ct;
+  function poke(){ document.body.classList.remove("nocursor"); clearTimeout(ct); ct = setTimeout(() => document.body.classList.add("nocursor"), 2000); }
+  document.addEventListener("mousemove", poke);
+  poke();
+
+  /* ---- ダブルタップ拡大・ピンチ防止 ---- */
+  document.addEventListener("gesturestart", e => e.preventDefault());
+  let lastTouch = 0;
+  document.addEventListener("touchend", e => { const n = Date.now(); if (n - lastTouch < 300 && e.target !== q) e.preventDefault(); lastTouch = n; }, { passive:false });
+
+  renderDisp();
+})();
+</script>
+</body>
+</html>
